@@ -1,14 +1,10 @@
-const { Sequelize } = require('sequelize')
-const sequelize = new Sequelize ('Escola', 'root', '',{
+const mysql = require('mysql')
+
+const pool = mysql.createPool({
     host: 'localhost',
-    dialect: 'mysql'
+    user: 'root',
+    password:'',
+    database:'ifshoes'
 })
 
-try{
-    sequelize.authenticate()
-    console.log('Conectado')
-} catch(err){
-    console.log('Não foi possivel conectar devido ao erro :', error)
-}
-
-module.exports = sequelize
+module.exports = pool
