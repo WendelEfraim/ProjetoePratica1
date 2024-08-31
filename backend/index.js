@@ -19,7 +19,7 @@ app.post('/user/register', async (req, res) => {
     if(!sobreNome){
         res.status(422)
         .json({
-            message:"Por favor insira um nome"
+            message:"Por favor insira um sobre nome"
         })
         return
     }
@@ -43,7 +43,7 @@ app.post('/user/register', async (req, res) => {
     if(!senha){
         res.status(422)
         .json({
-            message:"Por favor insira um nome"
+            message:"Por favor insira uma senha"
         })
         return
     }

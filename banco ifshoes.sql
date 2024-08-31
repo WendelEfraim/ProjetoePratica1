@@ -8,6 +8,7 @@ CREATE TABLE users (
     id_user INT PRIMARY KEY AUTO_INCREMENT,
     nome VARCHAR(25) NOT NULL,
     sobrenome VARCHAR(25) NOT NULL,
+    phone varchar(25),
     email VARCHAR(255) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL
 );
