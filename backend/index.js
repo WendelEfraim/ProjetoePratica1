@@ -1,30 +1,37 @@
 const express = require('express')
 const app = express()
+const bcrypt = require('bcrypt')
 const pool = require('./db/conn')
 
 app.use(express.json())
 
-app.post('/user/register',(req, res)=>{
-
-    const {nome, sobreNome, phone, email, senha} =req.body
-
-    const sql = "INSERT INTO users (??, ??, ??, ??, ??) VALUES (?, ?, ?, ?,?)"
-    const dados = ['nome','sobrenome','phone','email','senha',nome,sobreNome,phone,email,senha]
+app.post('/user/register', async (req, res) => {
+    const { nome, sobreNome, phone, email, senha } = req.body;
 
     if(!nome){
         res.status(422)
         .json({
-            message:"Por favor insira um email"
+            message:"Por favor insira um nome"
         })
         return
     }
+
     if(!sobreNome){
         res.status(422)
         .json({
-            message:"Por favor insira um email"
+            message:"Por favor insira um nome"
         })
         return
     }
+    
+    if(!phone){
+        res.status(422)
+        .json({
+            message:"Por favor insira um telefone"
+        })
+        return
+    }
+
     if(!email){
         res.status(422)
         .json({
@@ -32,49 +39,205 @@ app.post('/user/register',(req, res)=>{
         })
         return
     }
+
     if(!senha){
         res.status(422)
         .json({
-            message:"Por favor insira um email"
+            message:"Por favor insira um nome"
         })
         return
     }
 
-    pool.query(sql,dados,function(err){
-        if(err){
-            console.log(err)
-        }
-        res.status(201).json({
-            message:"Registrado com sucesso!"
-        })
-    })
-})
+    try {
+        // Verificar se o email já existe
+        const checkEmailSql = "SELECT email FROM users WHERE email = ? LIMIT 1";
+        pool.query(checkEmailSql, [email], async (err, results) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    message: "Erro ao consultar o banco de dados",
+                    error: err
+                });
+            }
 
-app.post('/user/login',(req,res) => {
-    const {email, senha} = req.body
+            if (results.length > 0) {
+                // Email já registrado
+                return res.status(409).json({
+                    message: "Email já registrado"
+                });
+            }
 
-    if(!email){
-        res.status(422).json({
-            message:"Por favor digite seu email"
-        })
+            // Hash da senha
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(senha, salt);
+
+            // Inserir novo usuário
+            const insertUserSql = "INSERT INTO users (nome, sobrenome, phone, email, senha) VALUES (?, ?, ?, ?, ?)";
+            const dados = [nome, sobreNome, phone, email, hashedPassword];
+
+            pool.query(insertUserSql, dados, (err) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({
+                        message: "Erro ao registrar usuário",
+                        error: err
+                    });
+                }
+                res.status(201).json({
+                    message: "Registrado com sucesso!"
+                });
+            });
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: "Erro ao processar a senha",
+            error: err
+        });
     }
-    if(!senha){
-        res.status(422).json({
-            message:'Por favor digite sua senha'
-        })
+});
+
+app.post('/user/login', (req, res) => {
+    const { email, senha } = req.body;
+
+    // Validação dos campos obrigatórios
+    if (!email || !senha) {
+        return res.status(422).json({
+            message: "Email e senha são obrigatórios"
+        });
     }
 
-    const sql = "SELECT * FROM users(??,??) VALUES (?,?)"
-    const dados = ['email', 'senha', email, senha]
+    const sql = "SELECT senha FROM users WHERE email = ? LIMIT 1";
+    const dados = [email];
 
-    pool.query(sql,dados,function(err){
-        if(err){
-            console.log(err)
+    pool.query(sql, dados, (error, results) => {
+        if (error) {
+            return res.status(500).json({
+                message: "Erro ao consultar o banco de dados",
+                error
+            });
         }
+
+        if (results.length > 0) {
+            const user = results[0];
+
+            bcrypt.compare(senha, user.senha, (err, result) => {
+                if (err) {
+                    return res.status(500).json({
+                        message: "Erro ao comparar senhas",
+                        error: err
+                    });
+                }
+                if (result) {
+                    return res.status(200).json({
+                        message: "Login bem-sucedido"
+                    });
+                } else {
+                    return res.status(401).json({
+                        message: "Senha incorreta"
+                    });
+                }
+            });
+        } else {
+            return res.status(404).json({
+                message: "Usuário não encontrado"
+            });
+        }
+    });
+});
+
+app.put('/user/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, sobreNome, phone, email, senha } = req.body;
+
+    if (!id || !nome || !sobreNome || !phone || !email || !senha) {
+        return res.status(422).json({
+            message: "Todos os campos são obrigatórios"
+        });
+    }
+
+    try {
+        // Hash da senha
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(senha, salt);
+
+        // Atualizar usuário
+        const sql = "UPDATE users SET nome = ?, sobrenome = ?, phone = ?, email = ?, senha = ? WHERE id_user = ?";
+        const dados = [nome, sobreNome, phone, email, hashedPassword, id];
+
+        pool.query(sql, dados, (err, result) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({
+                    message: "Erro ao atualizar usuário",
+                    error: err
+                });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    message: "Usuário não encontrado"
+                });
+            }
+
+            res.status(200).json({
+                message: "Usuário atualizado com sucesso"
+            });
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: "Erro ao processar a senha",
+            error: err
+        });
+    }
+});
+
+// Rota para deletar um usuário pelo ID
+
+app.delete('/user/:id', (req, res) => {
+
+    // Obtém o ID do usuário a partir dos parâmetros da URL
+    const { id } = req.params;
+
+    // Verifica se o ID foi fornecido na solicitação
+    if (!id) {
+        return res.status(422).json({
+            message: "O ID do usuário é obrigatório"
+        });
+    }
+
+    // SQL para deletar o usuário com o ID especificado
+    const sql = "DELETE FROM users WHERE id_user = ?";
+    const dados = [id];
+
+    // Executa a consulta SQL para deletar o usuário
+    pool.query(sql, dados, (err, result) => {
+        
+        // Se ocorrer um erro durante a execução da consulta, retorna um erro 500
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                message: "Erro ao deletar o usuário",
+                error: err
+            });
+        }
+
+        // Se nenhum usuário foi afetado pela consulta (não encontrado), retorna um erro 404
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                message: "Usuário não encontrado"
+            });
+        }
+
+        // Se a exclusão for bem-sucedida, retorna uma mensagem de sucesso com status 200
         res.status(200).json({
-            message:"Login realizado com sucesso"
-        })
-    })
-})
+            message: "Usuário deletado com sucesso"
+        });
+    });
+});
+
+
+
+
 
 app.listen('5000')
+
