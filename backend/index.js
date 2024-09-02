@@ -305,5 +305,45 @@ app.post('/produtos/cadastrar', (req, res) => {
     });
 });
 
+//CADASTRAR PRODUTO
+
+app.post('/produtos/cadastrar', (req, res) => {
+    const { titulo, descricao, preco, id_user, id_categoria } = req.body;
+
+    // Validação dos campos obrigatórios
+    if (!titulo || !preco || !id_user || !id_categoria) {
+        return res.status(422).json({
+            message: "Título, preço, ID do usuário e ID da categoria são obrigatórios"
+        });
+    }
+
+    // Consulta SQL para inserir um novo produto
+    const sql = `
+        INSERT INTO produto (titulo, descricao, preco, id_user, id_categoria)
+        VALUES (?, ?, ?, ?, ?)
+    `;
+
+    // Dados para a consulta
+    const dados = [titulo, descricao, preco, id_user, id_categoria];
+
+    // Executar a consulta
+    pool.query(sql, dados, (err, result) => {
+        if (err) {
+            console.error("Erro ao cadastrar o produto:", err);
+            return res.status(500).json({
+                message: "Erro ao cadastrar o produto",
+                error: err
+            });
+        }
+
+        // Responder com sucesso e o ID do produto criado
+        res.status(201).json({
+            message: "Produto cadastrado com sucesso!",
+            produtoId: result.insertId
+        });
+    });
+});
+
+
 app.listen('5000')
 
