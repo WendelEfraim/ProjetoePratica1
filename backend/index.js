@@ -236,8 +236,74 @@ app.delete('/user/:id', (req, res) => {
 });
 
 
+//           PRODUTOS!!
 
 
+// Rota para obter a lista de produtos
+app.get('/', (req, res) => {
+
+    // Consulta SQL para obter todos os produtos
+    const sql = `
+        SELECT 
+            p.id_produto, 
+            p.titulo, 
+            p.descricao, 
+            p.preco, 
+            c.nome AS categoria, 
+            u.nome AS vendedor 
+        FROM produto p
+        LEFT JOIN categoria c ON p.id_categoria = c.id_categoria
+        LEFT JOIN users u ON p.id_user = u.id_user
+    `;
+
+    pool.query(sql, (err, results) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                message: "Erro ao consultar o banco de dados",
+                error: err
+            });
+        }
+
+        res.status(200).json(results);
+    });
+});
+
+// CADASTRAR PRODUTO
+
+app.post('/produtos/cadastrar', (req, res) => {
+    const { titulo, descricao, preco, id_user, id_categoria } = req.body;
+
+    // Validação dos campos obrigatórios
+    if (!titulo || !preco || !id_user || !id_categoria) {
+        return res.status(422).json({
+            message: "Título, preço, ID do usuário e ID da categoria são obrigatórios"
+        });
+    }
+
+    // Consulta SQL para inserir um novo produto
+    const sql = `
+        INSERT INTO produto (titulo, descricao, preco, id_user, id_categoria)
+        VALUES (?, ?, ?, ?, ?)
+    `;
+
+    const dados = [titulo, descricao, preco, id_user, id_categoria];
+
+    pool.query(sql, dados, (err, result) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({
+                message: "Erro ao cadastrar o produto",
+                error: err
+            });
+        }
+
+        res.status(201).json({
+            message: "Produto cadastrado com sucesso!",
+            produtoId: result.insertId
+        });
+    });
+});
 
 app.listen('5000')
 
